@@ -81,62 +81,39 @@ the guest user's ID is always 0. Include in your output the name of the
 facility, the name of the member formatted as a single column, and the cost.
 Order by descending cost, and do not use any subqueries. */
 SELECT F.name AS facility,
-M.firstname AS member,
-B.slots * F.guestcost AS cost
+CASE WHEN B.memid = 0 THEN M.firstname 
+	ELSE M.firstname|| " " || M.surname END AS member,
+CASE WHEN B.memid = 0 THEN B.slots * F.guestcost
+	ELSE SUM(B.slots * F.membercost) END AS cost
 
 FROM Bookings B
 JOIN Facilities F ON B.facid=F.facid
 JOIN Members M ON B.memid=M.memid
 WHERE LEFT(B.starttime, 10) = '2012-09-14'
-AND B.memid=0
 
-UNION
-
-SELECT F.name AS facility,
-CONCAT(M.firstname," ",M.surname) AS member,
-SUM(B.slots * F.membercost) AS cost
-
-FROM Bookings B
-JOIN Facilities F ON B.facid=F.facid
-JOIN Members M ON B.memid=M.memid
-WHERE LEFT(B.starttime, 10) = '2012-09-14'
-AND B.memid <> 0
-
-GROUP BY B.memid
+GROUP BY 1,2
 HAVING cost > 30
 ORDER BY cost DESC
 
 /* Q9: This time, produce the same result as in Q8, but using a subquery. */
-SELECT guest_book.name, M1.firstname AS member, guest_book.cost 
-FROM Members M1
+SELECT sub.name AS facility,
+	   CASE WHEN sub.memid = 0 THEN M.firstname 
+			ELSE M.firstname|| " " || M.surname END AS member, 
+	   CASE WHEN sub.memid = 0 THEN sub.slots * sub.cost
+			ELSE SUM(sub.slots * sub.cost) END AS cost
+FROM Members M
 JOIN
-(SELECT B.memid,
- F.name,
- B.slots * F.guestcost AS cost
+(SELECT B.memid AS memid,
+ F.name AS name,
+ B.slots AS slots,
+ F.guestcost AS cost
 FROM Bookings B
 JOIN Facilities F ON F.facid = B.facid
 WHERE LEFT(B.starttime, 10) = '2012-09-14'
-AND B.memid = 0) guest_book
-ON M1.memid = guest_book.memid
-WHERE cost > 30
-    
-UNION
+AND B.memid = 0) sub ON M.memid = sub.memid
 
-SELECT member_book.name, CONCAT(M2.firstname," ", M2.surname) AS member, member_book.cost
-FROM Members M2
-JOIN
-(SELECT B.memid,
- F.name,
- SUM(B.slots * F.membercost) AS cost
-FROM Bookings B
-JOIN Facilities F ON F.facid = B.facid
-JOIN Members M3 ON B.memid = M3.memid
-WHERE LEFT(B.starttime, 10) = '2012-09-14'
-AND M3.memid <> 0
-GROUP BY M3.memid) member_book
-ON M2.memid = member_book.memid  
-WHERE cost > 30
-    
+GROUP BY facility, member 
+HAVING cost > 30
 ORDER BY cost DESC
 
 /* Q10: Produce a list of facilities with a total revenue less than 1000.
@@ -145,27 +122,14 @@ that there's a different cost for guests and members! */
 SELECT sub.facility, sub.revenue
 
 FROM(
-SELECT m.revenue + g.revenue AS revenue, m.facility AS facility
-FROM (SELECT F.name AS facility,
-SUM(B.slots*F.membercost) AS revenue
-FROM Bookings B
-JOIN Facilities F
-ON B.facid = F.facid
-WHERE B.memid <> 0
-GROUP BY F.name) m
-
-JOIN
-
-(SELECT F.name AS facility,
-SUM(B.slots*F.guestcost) AS revenue,
-F.facid
-FROM Bookings B
-JOIN Facilities F
-ON B.facid = F.facid
-WHERE B.memid = 0
-GROUP BY F.name) g
-
-ON m.facility = g.facility) sub
+    SELECT F.name AS facility,
+	CASE WHEN B.memid = 0 THEN SUM(B.slots*F.guestcost) 
+    	ELSE SUM(B.slots*F.membercost) END AS revenue,
+	F.facid
+	FROM Bookings B
+	JOIN Facilities F ON B.facid = F.facid
+	WHERE B.memid = 0
+	GROUP BY facility) sub
 
 WHERE revenue < 1000
 ORDER BY revenue DESC
