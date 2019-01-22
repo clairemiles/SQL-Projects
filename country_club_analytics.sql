@@ -81,45 +81,42 @@ the guest user's ID is always 0. Include in your output the name of the
 facility, the name of the member formatted as a single column, and the cost.
 Order by descending cost, and do not use any subqueries. */
 SELECT F.name AS facility,
-CASE WHEN B.memid = 0 THEN M.firstname 
-	ELSE M.firstname|| " " || M.surname END AS member,
-CASE WHEN B.memid = 0 THEN B.slots * F.guestcost
-	ELSE SUM(B.slots * F.membercost) END AS cost
+	CASE WHEN B.memid = 0 THEN M.firstname 
+		ELSE M.firstname|| " " || M.surname END AS member,
+	CASE WHEN B.memid = 0 THEN B.slots * F.guestcost
+		ELSE B.slots * F.membercost END AS cost
 
 FROM Bookings B
 JOIN Facilities F ON B.facid=F.facid
 JOIN Members M ON B.memid=M.memid
 WHERE LEFT(B.starttime, 10) = '2012-09-14'
-
-GROUP BY 1,2
 HAVING cost > 30
 ORDER BY cost DESC
 
 /* Q9: This time, produce the same result as in Q8, but using a subquery. */
-SELECT sub.name AS facility,
-	   CASE WHEN sub.memid = 0 THEN M.firstname 
-			ELSE M.firstname|| " " || M.surname END AS member, 
-	   CASE WHEN sub.memid = 0 THEN sub.slots * sub.cost
-			ELSE SUM(sub.slots * sub.cost) END AS cost
-FROM Members M
-JOIN
-(SELECT B.memid AS memid,
- F.name AS name,
- B.slots AS slots,
- F.guestcost AS cost
-FROM Bookings B
-JOIN Facilities F ON F.facid = B.facid
-WHERE LEFT(B.starttime, 10) = '2012-09-14'
-AND B.memid = 0) sub ON M.memid = sub.memid
-
-GROUP BY facility, member 
-HAVING cost > 30
+-- subset 
+SELECT sub.facility AS facility, 
+	   sub.member AS member,
+	   sub.cost AS cost
+FROM (
+	SELECT F.name AS facility, 
+	CASE WHEN B.memid = 0 THEN M.firstname
+		ELSE M.firstname ||  " " || M.surname END AS member, 
+	CASE WHEN B.memid = 0 THEN B.slots * F.guestcost
+		ELSE B.slots * F.membercost END AS cost
+	FROM Bookings B
+	JOIN Facilities F ON B.facid = F.facid
+	JOIN Members M ON B.memid = M.memid
+	WHERE LEFT( B.starttime, 10 ) =  '2012-09-14'
+	HAVING cost >30
+	)sub
 ORDER BY cost DESC
 
 /* Q10: Produce a list of facilities with a total revenue less than 1000.
 The output of facility name and total revenue, sorted by revenue. Remember
 that there's a different cost for guests and members! */
-SELECT sub.facility, sub.revenue
+SELECT sub.facility,
+	   sub.revenue
 
 FROM(
     SELECT F.name AS facility,
