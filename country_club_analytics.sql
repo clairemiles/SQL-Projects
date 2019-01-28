@@ -55,24 +55,14 @@ FROM Members )
 Include in your output the name of the court, and the name of the member
 formatted as a single column. Ensure no duplicate data, and order by
 the member name. */
-SELECT tennis.name AS facility, CONCAT(book.first, " ", book.surname) AS member
-FROM (
-
-(SELECT DISTINCT(M.firstname) AS first, M.surname, B.facid
+SELECT CONCAT(firstname, " ", surname) AS member_name,
+	   F.name AS facility
 FROM Bookings B
-INNER JOIN Members M
-ON M.memid = B.memid
-) book
- 
-INNER JOIN
-
-(SELECT facid, name
-FROM Facilities
-WHERE name LIKE 'Tennis Court%') tennis
-
-ON tennis.facid = book.facid
-)
-GROUP BY member
+JOIN Facilities F ON B.facid = F.facid
+JOIN Members M ON M.memid = B.memid
+WHERE F.name LIKE 'Tennis Court%'
+GROUP BY 1,2
+ORDER BY 1
 
 /* Q8: How can you produce a list of bookings on the day of 2012-09-14 which
 will cost the member (or guest) more than $30? Remember that guests have
@@ -94,7 +84,7 @@ HAVING cost > 30
 ORDER BY cost DESC
 
 /* Q9: This time, produce the same result as in Q8, but using a subquery. */
--- subset 
+
 SELECT sub.facility AS facility, 
 	   sub.member AS member,
 	   sub.cost AS cost
@@ -109,7 +99,7 @@ FROM (
 	JOIN Members M ON B.memid = M.memid
 	WHERE LEFT( B.starttime, 10 ) =  '2012-09-14'
 	HAVING cost >30
-	)sub
+	) sub
 ORDER BY cost DESC
 
 /* Q10: Produce a list of facilities with a total revenue less than 1000.
@@ -117,7 +107,6 @@ The output of facility name and total revenue, sorted by revenue. Remember
 that there's a different cost for guests and members! */
 SELECT sub.facility,
 	   sub.revenue
-
 FROM(
     SELECT F.name AS facility,
 	CASE WHEN B.memid = 0 THEN SUM(B.slots*F.guestcost) 
@@ -125,7 +114,6 @@ FROM(
 	F.facid
 	FROM Bookings B
 	JOIN Facilities F ON B.facid = F.facid
-	WHERE B.memid = 0
 	GROUP BY facility) sub
 
 WHERE revenue < 1000
